@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build_release_macos:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "$GITHUB_CONTEXT"
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        # - uses: actions/checkout@v1
+        # - run: cargo build --release
+        # - run: target/release/gleam --version
