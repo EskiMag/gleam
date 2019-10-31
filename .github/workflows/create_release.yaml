@@ -27,3 +27,44 @@ jobs:
           asset_path: ${{ steps.create_archive.outputs.ASSET }}
           asset_name: ${{ steps.create_archive.outputs.ASSET }}
           asset_content_type: application/gzip
+
+  build_release_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Build gleam inside Docker
+        id: build_gleam
+        run: |
+          CONTAINER_NAME=gleam-linux-builder
+          DOCKER_TAG=lpil/gleam:$(echo $TAG_NAME | tail -c +2)
+          docker build . -t $DOCKER_TAG
+          docker run --name $CONTAINER_NAME $DOCKER_TAG --version
+          TMP=$(mktemp -d)
+          cd $TMP
+          docker cp $CONTAINER_NAME:/gleam gleam
+          docker rm $CONTAINER_NAME
+          echo ::set-output name=BINARY_PATH::"$TMP/gleam"
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+
+      - name: Archive the build
+        id: create_archive
+        run: |
+          ARCHIVE=gleam-$TAG_NAME-linux-amd64.tar.gz
+          tar -czvf $ARCHIVE "$BINARY_PATH" 
+          echo ::set-output name=ASSET_NAME::"$ARCHIVE"
+          echo ::set-output name=ASSET_PATH::"$ARCHIVE"
+        env:
+          BINARY_PATH: ${{ steps.build_gleam.outputs.BINARY_PATH }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ steps.create_archive.outputs.ASSET_PATH }}
+          asset_name: ${{ steps.create_archive.outputs.ASSET_NAME }}
+          asset_content_type: application/gzip
